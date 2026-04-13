@@ -58,7 +58,7 @@ class Hyperparameters:
     iterations = int(os.environ.get("ITERATIONS", 20000))
     warmdown_iters = int(os.environ.get("WARMDOWN_ITERS", 1200))
     warmup_steps = int(os.environ.get("WARMUP_STEPS", 20))
-    train_batch_tokens = int(os.environ.get("TRAIN_BATCH_TOKENS", 24576))
+    train_batch_tokens = int(os.environ.get("TRAIN_BATCH_TOKENS", 32768))
     train_seq_len = int(os.environ.get("TRAIN_SEQ_LEN", 512))
     max_wallclock_seconds = float(os.environ.get("MAX_WALLCLOCK_SECONDS", 600.0))
     qk_gain_init = float(os.environ.get("QK_GAIN_INIT", 1.5))
@@ -114,7 +114,17 @@ class Hyperparameters:
 
 
 def zeropower_via_newtonschulz5(G: Tensor, steps: int = 10, eps: float = 1e-7) -> Tensor:
-    return G
+    a, b, c = (3.4445, -4.7750, 2.0315)
+    X = G.bfloat16()
+    X /= X.norm() + eps
+    transposed = G.size(0) > G.size(1)
+    if transposed:
+        X = X.T
+    for _ in range(steps):
+        A = X @ X.T
+        B = b * A + c * A @ A
+        X = a * X + B @ X
+    return X.T if transposed else X
 
 
 class Muon(torch.optim.Optimizer):
